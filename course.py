@@ -1,27 +1,29 @@
 import aiohttp
 import asyncio
 import re
-from datetime import datetime
 from config import error_answer
 from print_funcs import error
 
 
+# ? Removes unnecessary nulls in float variable
 def remove_unnecessary_nulls(num):
     for i in range(len(str(num-int(num))[2:])):
         if str(num)[-1] == 0:
             num = str(num)[:len(str(num))-1]
         else:
             break
-    return(num)
+    return num
 
 
-def remove_text_between_parens(text):  # ? Удаляет скобки и их содержимое
+# ? Removes brackets and their content
+def remove_text_between_parens(text):
     n = 1
     while n:
         text, n = re.subn(r'\([^()]*\)', '', text)
     return text
 
 
+# ? Returns message content for telegram
 async def get_cur_course(session, cur="usd"):
     global answer
     try:
@@ -37,6 +39,9 @@ async def get_cur_course(session, cur="usd"):
 
             match cur.lower():
                 case "rub":
+
+                    # ? Currency info
+
                     cur_abbr = "RUB"
 
                     cur_name = "Российский Рубль"
@@ -95,6 +100,7 @@ async def get_cur_course(session, cur="usd"):
     return answer
 
 
+# ? Create tasks for get-cur_course fuction
 async def get_course_data(cur):
     async with aiohttp.ClientSession() as session:
         tasks = []

@@ -1,22 +1,20 @@
 import os
 
-# ? Токен телеграм бота
+# ? Telegram bot token
 tg_token = os.getenv("tg_token")
 
-# ? Токен OpenWeather
+# ? OpenWeather token
 weather_token = os.getenv("weather_token")
 
-# * База Данных
+# * DataBase info
 host = os.getenv("host")
 port = int(os.getenv("port"))
 user = os.getenv("user")
 password = os.getenv("password")
 db_name = os.getenv("db_name")
 
-# ? Данные прокси
-proxy_login = os.getenv("proxy_login")
-proxy_password = os.getenv("proxy_password")
+# ? Proxy data
 proxy = os.getenv("proxy")
 
-# ? Сообщения пользователю
+# ? Messages to user
 error_answer = "Похоже, вы ввели что-то не то..."

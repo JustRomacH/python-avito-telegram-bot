@@ -18,6 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
+# ? Creates driver and configures it
 def set_driver_options():
     global options, caps, proxy_options, driver
 
@@ -38,31 +39,30 @@ def set_driver_options():
     options.add_argument('--ignore-ssl-errors')
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--ignore-certificate-errors-spki-list')
-    options.add_argument('log-level=1')
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
     options.headless = True
 
     driver = webdriver.Chrome(
-        executable_path="F:\\Code\Python\\telegram\\bin\\chromedriver.exe",
+        executable_path=".\\bin\\chromedriver.exe",
         options=options,
         desired_capabilities=caps
     )
 
 
+# ? Gets html file of every page
 async def get_html(search_text, min_price=0, max_price=0, sort=0, city="москва"):
 
     global path
     path = ".\\bin\\avito"
 
-    # ? Удаляет всё в директории Авито
+    # ? Delete al files in Avito directory
     for file in os.listdir(path):
         os.remove(f"{path}\\{file}")
 
-    # ? Меняет название города для ссылки
+    # ? Changes city name to link format
     city = slugify(city.lower())
 
-    # ? Создаёт драйвер и настраивает
     set_driver_options()
 
     stealth(
@@ -79,29 +79,40 @@ async def get_html(search_text, min_price=0, max_price=0, sort=0, city="моск
         sort = 0
 
     url = f"https://www.avito.ru/{city}//?q={'+'.join(search_text.split())}&s={sort}"
+
     try:
         driver.get(url)
+
+        # ? Page loaded
         cprint("[INFO] Загрузил страницу", "green")
+
+        # ? Wait until input for min price becomes clickable
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable(driver.find_elements(
                 By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[0]))
+
         driver.implicitly_wait(10)
 
         if min_price and max_price:
+
+            # ? Set MIN price
             driver.find_elements(
                 By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[0].send_keys(min_price)
             cprint("[INFO] Поставил минимальную цену", "green")
 
             driver.implicitly_wait(5)
 
+            # ? Set MAX price
             driver.find_elements(
                 By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[1].send_keys(max_price)
             cprint("[INFO] Поставил максимальную цену", "green")
 
+            # ? Wait until button becomes clickable
             button = driver.find_elements(
                 By.CLASS_NAME, "button-button-CmK9a.button-size-s-r9SeD.button-primary-x_x8w.width-width-12-_MkqF")[0]
             WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable(button))
+
             driver.implicitly_wait(10)
 
             button.click()
@@ -109,31 +120,42 @@ async def get_html(search_text, min_price=0, max_price=0, sort=0, city="моск
 
             driver.implicitly_wait(10)
 
+        # ? Gets page's html
         first_page_source = driver.page_source
         html = Soup(first_page_source, "lxml")
         try:
             last_page = int(html.find_all(
                 "span", class_="pagination-item-JJq_j")[-2].text)
         except:
+            # ? If no pagination block on the page
             last_page = 1
+
         url = driver.current_url
 
+        # ? Goes through all the pages
         for i in range(1, last_page+1):
+            # ? Writes page source to html file
             async with aiofiles.open(f"bin\\avito\\page_{i}.html", "w", encoding="utf-8") as f:
+
                 driver.get(f"{url}&p={i}")
                 page_source = driver.page_source
                 soup = Soup(page_source, "lxml")
+
+                # ? Block of ads from other cities
                 other_cities = soup.find(
                     "div", class_="items-extraTitle-JFe8_")
+
                 await f.write(page_source)
+
                 cprint(f"[+] Обработано {i}/{last_page} страниц", "cyan")
 
-                # ? Если на странице есть объявление с дургих городов
+                # ? If block of ads on the page
                 if other_cities:
                     cprint("[+] Дальше идут другие города", "yellow")
                     break
 
     except Exception as ex:
+        # ? Removes all files in dir
         for file in os.listdir(path):
             if file.endswith("html"):
                 os.remove(f"{path}\\{file}")
@@ -144,17 +166,22 @@ async def get_html(search_text, min_price=0, max_price=0, sort=0, city="моск
         driver.quit()
 
 
+# ? Gets info from every page
 async def get_info():
+    global title_list, data_list
     try:
-        global title_list, data_list
         title_list = []
         data_list = []
+        # ? Goes through all the html pages
         for file in os.listdir(path):
             async with aiofiles.open(f"{path}\\{file}", "r", encoding="utf-8") as f:
                 html = await f.read()
                 soup = Soup(html, "lxml")
+
+                # ? Ad blocks
                 items = soup.find(
                     "div", class_="items-items-kAJAg").find_all("div", class_="js-catalog-item-enum")
+
                 for item in items:
 
                     block = item.find("div", class_="iva-item-body-KLUuy")
@@ -205,6 +232,7 @@ async def get_info():
                     except:
                         link = None
 
+                    # ? Appends data
                     title_list.append(title)
 
                     data_list.append({
@@ -214,23 +242,31 @@ async def get_info():
                         "Создано": created,
                         "Ссылка": link
                     })
+
     except Exception as ex:
         cprint(f"[INFO_ERROR] {repr(ex)}", "red")
     finally:
+        # ? Removes all files in dir
         for file in os.listdir(path):
             if file.endswith("html"):
                 os.remove(f"{path}\\{file}")
         return data_list
 
 
+# ? Creates json with all the ads
 async def create_json(text_search):
     try:
         if data_list:
+
+            # ? Changes search text appearance
             text_search = (translit(text_search.replace(
                 " ", "_"), language_code="ru", reversed=True)).lower()
+
             data_dict = {}
+
             for i, item in enumerate(data_list):
                 try:
+                    # ? Removes \n in desc
                     item["Описание"] = " ".join(
                         item["Описание"].replace("\n", " ").split())
                 except:
@@ -242,19 +278,19 @@ async def create_json(text_search):
 
             cprint(
                 f"[JSON_INFO] Файл {text_search}.json успешно создан!", "green")
+
     except Exception as ex:
         cprint(f"[JSON_ERROR] {repr(ex)}", "red")
-    finally:
-        for file in os.listdir(path):
-            if file.endswith("html"):
-                os.remove(f"{path}\\{file}")
 
 
+# ? Creates csv with all the ads
 async def create_csv(text_search):
     try:
         if data_list:
+            # ? Changes search_text appearance
             text_search = (translit(text_search.replace(
                 " ", "_"), language_code="ru", reversed=True)).lower()
+
             async with aiofiles.open(f".\\bin\\avito\\{text_search}.csv", "w", encoding="utf-8") as f:
                 writer = AsyncWriter(f)
                 await writer.writerow(
@@ -286,6 +322,7 @@ async def create_csv(text_search):
         cprint(f"[CSV_ERROR] {repr(ex)}", "red")
 
 
+# ? All in one
 async def parse_avito(text_search, min_price=0, max_price=0, sort=0, city="москва"):
     await get_html(text_search, min_price=min_price, max_price=max_price, city=city, sort=sort)
     await get_info()
@@ -297,21 +334,13 @@ async def parse_avito(text_search, min_price=0, max_price=0, sort=0, city="мо�
 
 
 async def main():
-    # text_search = input("Введите запрос >>> ")
-    # min_price = input("Введите MIN цену >>> ")
-    # max_price = input("Введите MAX цену >>> ")
-    # city = input("Введите город >>> ")
-    # sort = input("Введите сортировку >>> ")
-    text_search = "playstation 5"
-    min_price = "45000"
-    max_price = "60000"
-    city = "санкт-петербург"
-    sort = "1"
+    text_search = input("Введите запрос >>> ")
+    min_price = input("Введите MIN цену >>> ")
+    max_price = input("Введите MAX цену >>> ")
+    city = input("Введите город >>> ")
+    sort = input("Введите сортировку >>> ")
     await parse_avito(text_search, min_price, max_price, sort, city)
 
 
 if __name__ == "__main__":
-    start = datetime.now()
     asyncio.run(main())
-    finish = datetime.now()
-    print(f"\nСкрипт завершил работу за {str(finish-start)[2:10]} секунд")

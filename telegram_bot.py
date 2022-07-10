@@ -9,7 +9,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram import Bot, Dispatcher, executor, types
 
 
@@ -24,7 +24,7 @@ async def main():
     await set_commands(bot)
 
 
-# ? Регистрирует команды
+# ? Registers commands
 async def set_commands(bot: Bot):
     global commands
     commands = [
@@ -46,7 +46,7 @@ async def set_commands(bot: Bot):
     await bot.set_my_commands(commands)
 
 
-# * Стейты для Авито
+# * States for Avito
 class Avito(StatesGroup):
     avito_start = State()
     search_text = State()
@@ -56,14 +56,15 @@ class Avito(StatesGroup):
     city = State()
 
 
-# * Стейты для города
+# * States for City
 class City(StatesGroup):
     city_start = State()
 
 
-# ! Старт
+# ! Start
 @dp.message_handler(commands=["start"])
 async def start_command(message: types.Message):
+    # ? Main keyboard
     keyboard = ReplyKeyboardMarkup(
         resize_keyboard=True, row_width=2)
     for command in commands_names[:2]:
@@ -78,7 +79,7 @@ async def start_command(message: types.Message):
         error("BOT", ex)
 
 
-#! Команды
+#! Commands
 @dp.message_handler(commands=["help", "commands", "command", "info"])
 async def send_commands(message: types.Message):
     answer = "<b>Список комманд</b>\n\n"
@@ -89,7 +90,7 @@ async def send_commands(message: types.Message):
     await message.answer(answer)
 
 
-# ! Курс
+# ! Course
 @dp.message_handler(Text(equals=commands_names[1]))
 @dp.message_handler(commands=["course", "cur"])
 async def cur_course(message: types.Message):
@@ -108,12 +109,12 @@ async def cur_course(message: types.Message):
         error("BOT", ex)
 
 
-# ! Погода
+# ! Weather
 @dp.message_handler(Text(equals=commands_names[2]))
 @dp.message_handler(commands=["weather", "wthr", "street", "temp"])
 async def weather(message: types.Message):
     try:
-        # * Данные пользователя
+        # * User's id
         user_id = message.from_id
 
         if message.get_args():
@@ -129,7 +130,7 @@ async def weather(message: types.Message):
         error("BOT", ex)
 
 
-# ! Мой город
+# ! My city
 @dp.message_handler(Text(equals=commands_names[4]))
 @dp.message_handler(commands=["my_city", "get_city"])
 async def city(message: types.Message):
@@ -139,8 +140,8 @@ async def city(message: types.Message):
         await message.answer("Ваш город ещё не записан")
 
 
-#! Установка города
-# ? Просит название города
+#! Set city
+# ? Asks for city name
 @dp.message_handler(Text(equals=commands_names[3]))
 @dp.message_handler(commands=["city", "set_city"])
 async def city(message: types.Message):
@@ -148,7 +149,7 @@ async def city(message: types.Message):
     await City.city_start.set()
 
 
-# ? Получает название города и отправляет в БД
+# ? Gets city name and sends to DB
 @dp.message_handler(state=City.city_start)
 async def set_sity(message: types.Message, state: FSMContext):
     try:
@@ -167,8 +168,8 @@ async def set_sity(message: types.Message, state: FSMContext):
         error("BOT", ex)
 
 
-#! Авито
-# ? Просит поисковой запрос
+#! Avito
+# ? Asks for search text
 @dp.message_handler(Text(equals=commands_names[0]))
 @dp.message_handler(commands=["avito", "parse"])
 async def avito_parse(message: types.Message):
@@ -176,7 +177,7 @@ async def avito_parse(message: types.Message):
     await Avito.avito_start.set()
 
 
-@dp.message_handler(state=Avito.avito_start)  # ? Просит MIN цену
+@dp.message_handler(state=Avito.avito_start)  # ? Asks for MIN price
 async def get_search_text(message: types.Message, state: FSMContext):
     search_text = message.text
     await state.update_data(search_text=search_text)
@@ -184,7 +185,7 @@ async def get_search_text(message: types.Message, state: FSMContext):
     await Avito.min_price.set()
 
 
-@dp.message_handler(state=Avito.min_price)  # ? Просит MAX цену
+@dp.message_handler(state=Avito.min_price)  # ? Asks for MAX price
 async def get_min_price(message: types.Message, state: FSMContext):
     min_price = message.text
     await state.update_data(min_price=min_price)
@@ -192,7 +193,7 @@ async def get_min_price(message: types.Message, state: FSMContext):
     await Avito.max_price.set()
 
 
-@dp.message_handler(state=Avito.max_price)  # ? Просит сортировку
+@dp.message_handler(state=Avito.max_price)  # ? Asks for sort
 async def get_max_price(message: types.Message, state: FSMContext):
     max_price = message.text
     await state.update_data(max_price=max_price)
@@ -200,7 +201,7 @@ async def get_max_price(message: types.Message, state: FSMContext):
     await Avito.sort.set()
 
 
-@dp.message_handler(state=Avito.sort)  # ? Парсит Авито или просит город
+@dp.message_handler(state=Avito.sort)  # ? Scraps Avito or asks for city
 async def get_sort(message: types.Message, state: FSMContext):
     sort = message.text
     await state.update_data(sort=sort)
@@ -239,7 +240,7 @@ async def get_sort(message: types.Message, state: FSMContext):
         await Avito.city.set()
 
 
-@dp.message_handler(state=Avito.city)  # ? Парсит Авито
+@dp.message_handler(state=Avito.city)  # ? Scraps Avito
 async def get_city(message: types.Message, state: FSMContext):
     city = message.text
     await state.update_data(city=city)
