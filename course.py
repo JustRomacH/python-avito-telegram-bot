@@ -6,7 +6,7 @@ from config import error_answer
 from print_funcs import error
 
 
-def remove_nulls(num):
+def remove_unnecessary_nulls(num):
     for i in range(len(str(num-int(num))[2:])):
         if str(num)[-1] == 0:
             num = str(num)[:len(str(num))-1]
@@ -35,56 +35,57 @@ async def get_cur_course(session, cur="usd"):
             if cur is None or cur == "":
                 cur = "usd"
 
-            if cur.lower() != "rub":
-                cur_abbr = r["Valute"][cur.upper()]["CharCode"]
+            match cur.lower():
+                case "rub":
+                    cur_abbr = "RUB"
 
-                cur_name = remove_text_between_parens(
-                    r["Valute"][cur.upper()]["Name"].strip())
+                    cur_name = "Российский Рубль"
 
-                cur_value = remove_nulls(
-                    round(r["Valute"][cur.upper()]["Value"], 2))
+                    cur_value = float(remove_unnecessary_nulls(
+                        round(1 / r["Valute"]["USD"]["Value"], 4)))
 
-                cur_previous_value = remove_nulls(
-                    round(r["Valute"][cur.upper()]["Previous"], 2))
+                    cur_previous_value = float(remove_unnecessary_nulls(
+                        round(1 / r["Valute"]["USD"]["Previous"], 4)))
 
-                cur_change = abs(remove_nulls(
-                    round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
+                    cur_change = abs(remove_unnecessary_nulls(
+                        round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
 
-                if cur_previous_value > cur_value:
-                    cur_change = f"-{cur_change}"
-                    change_emoji = "\U0001F4C9"
-                else:
-                    cur_change = f"+{cur_change}"
-                    change_emoji = "\U0001F4C8"
+                    if cur_previous_value > cur_value:
+                        cur_change = f"-{cur_change}"
+                        change_emoji = "\U0001F4C9"
+                    else:
+                        cur_change = f"+{cur_change}"
+                        change_emoji = "\U0001F4C8"
 
-                answer = (f"Курс {cur_abbr} ({cur_name}):  {cur_value}₽\n"
-                          f"Предыдущее значение:  {cur_previous_value}₽\n"
-                          f"Изменение:  {cur_change}% {change_emoji}")
+                    answer = (f"Курс {cur_abbr} ({cur_name}):  {cur_value}$\n"
+                              f"Предыдущее значение:  {cur_previous_value}$\n"
+                              f"Изменение:  {cur_change}% {change_emoji}")
 
-            else:
-                cur_abbr = "RUB"
+                case _:
+                    cur_abbr = r["Valute"][cur.upper()]["CharCode"]
 
-                cur_name = "Российский Рубль"
+                    cur_name = remove_text_between_parens(
+                        r["Valute"][cur.upper()]["Name"].strip())
 
-                cur_value = float(remove_nulls(
-                    round(1 / r["Valute"]["USD"]["Value"], 4)))
+                    cur_value = remove_unnecessary_nulls(
+                        round(r["Valute"][cur.upper()]["Value"], 2))
 
-                cur_previous_value = float(remove_nulls(
-                    round(1 / r["Valute"]["USD"]["Previous"], 4)))
+                    cur_previous_value = remove_unnecessary_nulls(
+                        round(r["Valute"][cur.upper()]["Previous"], 2))
 
-                cur_change = abs(remove_nulls(
-                    round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
+                    cur_change = abs(remove_unnecessary_nulls(
+                        round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
 
-                if cur_previous_value > cur_value:
-                    cur_change = f"-{cur_change}"
-                    change_emoji = "\U0001F4C9"
-                else:
-                    cur_change = f"+{cur_change}"
-                    change_emoji = "\U0001F4C8"
+                    if cur_previous_value > cur_value:
+                        cur_change = f"-{cur_change}"
+                        change_emoji = "\U0001F4C9"
+                    else:
+                        cur_change = f"+{cur_change}"
+                        change_emoji = "\U0001F4C8"
 
-                answer = (f"Курс {cur_abbr} ({cur_name}):  {cur_value}$\n"
-                          f"Предыдущее значение:  {cur_previous_value}$\n"
-                          f"Изменение:  {cur_change}% {change_emoji}")
+                    answer = (f"Курс {cur_abbr} ({cur_name}):  {cur_value}₽\n"
+                              f"Предыдущее значение:  {cur_previous_value}₽\n"
+                              f"Изменение:  {cur_change}% {change_emoji}")
 
     except Exception as ex:
 
@@ -109,8 +110,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    start = datetime.now()
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
-    finish = datetime.now()
-    print(finish-start)
