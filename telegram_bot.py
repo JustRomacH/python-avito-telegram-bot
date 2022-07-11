@@ -299,7 +299,7 @@ async def get_city(message: types.Message, state: FSMContext):
             max_price = (await state.get_data()).get("max_price")
             sort = (await state.get_data()).get("sort")
             city_name = (await state.get_data()).get("city")
-            await message.answer("<b>Пожалуйста, подождите...</b>")
+            await message.answer("Пожалуйста, подождите...")
 
             file_name = await parse_avito(
                 text_search=search_text,
@@ -338,7 +338,7 @@ async def scrap_avito(message: types.Message, state: FSMContext):
         max_price = (await state.get_data()).get("max_price")
         sort = (await state.get_data()).get("sort")
         city_name = (await state.get_data()).get("city")
-        await message.answer("<b>Пожалуйста, подождите...</b>")
+        await message.answer("Пожалуйста, подождите...")
 
         file_name = await parse_avito(
             text_search=search_text,
