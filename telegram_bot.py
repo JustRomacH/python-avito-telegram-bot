@@ -1,6 +1,4 @@
-from gc import callbacks
 import os
-from sys import prefix
 from config import tg_token
 from course import *
 from weather import *
@@ -196,7 +194,7 @@ async def get_category(message: types.Message, state: FSMContext):
     cat_keyboard = InlineKeyboardMarkup(row_width=2)
 
     # ? Json with all categories on russian
-    async with aiofiles.open(".\\bin\\avito_categories_ru.json", "r", encoding="utf-8") as f:
+    async with aiofiles.open(".\\bin\\jsons\\avito_categories_ru.json", "r", encoding="utf-8") as f:
         categories_ru = json.loads(await f.read())
 
     # ? Add all buttons to inline keyboard
@@ -218,7 +216,7 @@ async def get_subcategory(call: types.CallbackQuery, callback_data: dict, state=
     await state.update_data(cat=cat)
 
     # ? Json with all categories on rus
-    async with aiofiles.open(".\\bin\\avito_categories_ru.json", "r", encoding="utf-8") as f:
+    async with aiofiles.open(".\\bin\\jsons\\avito_categories_ru.json", "r", encoding="utf-8") as f:
         data_ru = json.loads(await f.read())
 
     match cat.lower():
@@ -255,9 +253,9 @@ async def get_min_price(call: types.CallbackQuery, callback_data: dict, state: F
     podcat = callback_data.get("button_name")
 
     # ? Jsons with all categories
-    async with aiofiles.open(".\\bin\\avito_categories_en.json", "r", encoding="utf-8") as f:
+    async with aiofiles.open(".\\bin\\jsons\\avito_categories_en.json", "r", encoding="utf-8") as f:
         data_en = json.loads(await f.read())
-    async with aiofiles.open(".\\bin\\avito_cat_translit.json", "r", encoding="utf-8") as f:
+    async with aiofiles.open(".\\bin\\jsons\\avito_cat_translit.json", "r", encoding="utf-8") as f:
         data_translit = json.loads(await f.read())
 
     # ? Translit from rus to eng
@@ -314,10 +312,10 @@ async def get_city(message: types.Message, state: FSMContext):
             file_json = f"{file_name}.json"
             file_csv = f"{file_name}.csv"
 
-            await message.answer_document(open(f".\\bin\\avito\\{file_json}", "rb"))
-            await message.answer_document(open(f".\\bin\\avito\\{file_csv}", "rb"))
-            os.remove(f".\\bin\\avito\\{file_json}")
-            os.remove(f".\\bin\\avito\\{file_csv}")
+            await message.answer_document(open(f".\\bin\\{file_json}", "rb"))
+            await message.answer_document(open(f".\\bin\\{file_csv}", "rb"))
+            os.remove(f".\\bin\\{file_json}")
+            os.remove(f".\\bin\\{file_csv}")
         except Exception as ex:
             await message.answer("Похоже, произошла ошибка...")
             error("BOT", ex)
@@ -351,12 +349,12 @@ async def scrap_avito(message: types.Message, state: FSMContext):
         )
 
         file_json = f"{file_name}.json"
-        file_csv = f"{file_name}.json"
+        file_csv = f"{file_name}.csv"
 
-        await message.answer_document(open(f".\\bin\\avito\\{file_json}", "rb"))
-        await message.answer_document(open(f".\\bin\\avito\\{file_csv}", "rb"))
-        os.remove(f".\\bin\\avito\\{file_json}")
-        os.remove(f".\\bin\\avito\\{file_csv}")
+        await message.answer_document(open(f".\\bin\\{file_json}", "rb"))
+        await message.answer_document(open(f".\\bin\\{file_csv}", "rb"))
+        os.remove(f".\\bin\\{file_json}")
+        os.remove(f".\\bin\\{file_csv}")
     except Exception as ex:
         await message.answer("Похоже, произошла ошибка...")
         error("BOT", ex)

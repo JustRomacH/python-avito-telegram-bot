@@ -2,7 +2,6 @@ import json
 import aiofiles
 import asyncio
 import os
-from testik import get_category
 from termcolor import cprint
 from aiocsv import AsyncWriter
 from config import proxy
@@ -44,7 +43,7 @@ def set_driver_options():
     options.headless = True
 
     driver = webdriver.Chrome(
-        executable_path=".\\bin\\chromedriver.exe",
+        executable_path=".\\bin\\webdriver\\chromedriver.exe",
         options=options,
         desired_capabilities=caps
     )
@@ -53,12 +52,10 @@ def set_driver_options():
 # ? Gets html file of every page
 async def get_html(search_text, cat, min_price, max_price, sort, city):
 
-    global path
-    path = ".\\bin\\avito"
-
-    # ? Delete all files in Avito directory
-    for file in os.listdir(path):
-        os.remove(f"{path}\\{file}")
+    # ? Delete all files in bin directory
+    for file in os.listdir(".\\bin"):
+        if file.endswith("html") or file.endswith("json"):
+            os.remove(f".\\bin\\{file}")
 
     # ? Changes city name to link format
     city = slugify(city.lower())
@@ -135,7 +132,7 @@ async def get_html(search_text, cat, min_price, max_price, sort, city):
         # ? Goes through all the pages
         for i in range(1, last_page+1):
             # ? Writes page source to html file
-            async with aiofiles.open(f"bin\\avito\\page_{i}.html", "w", encoding="utf-8") as f:
+            async with aiofiles.open(f"bin\\page_{i}.html", "w", encoding="utf-8") as f:
 
                 driver.get(f"{url}&p={i}")
                 page_source = driver.page_source
@@ -153,12 +150,17 @@ async def get_html(search_text, cat, min_price, max_price, sort, city):
                 if other_cities:
                     cprint("[+] Дальше идут другие города", "yellow")
                     break
-
+    except TimeoutError:
+        # ? Removes all files in dir
+        for file in os.listdir(".\\bin"):
+            if file.endswith("html"):
+                os.remove(f".\\bin\\{file}")
+        cprint(f"[HTML_ERROR] Timeout error", "red")
     except Exception as ex:
         # ? Removes all files in dir
-        for file in os.listdir(path):
+        for file in os.listdir(".\\bin"):
             if file.endswith("html"):
-                os.remove(f"{path}\\{file}")
+                os.remove(f".\\bin\\{file}")
         cprint(f"[HTML_ERROR] {repr(ex)}", "red")
 
     finally:
@@ -173,83 +175,84 @@ async def get_info():
         title_list = []
         data_list = []
         # ? Goes through all the html pages
-        for file in os.listdir(path):
-            async with aiofiles.open(f"{path}\\{file}", "r", encoding="utf-8") as f:
-                html = await f.read()
-                soup = Soup(html, "lxml")
+        for file in os.listdir(".\\bin"):
+            if file.endswith("html"):
+                async with aiofiles.open(f".\\bin\\{file}", "r", encoding="utf-8") as f:
+                    html = await f.read()
+                    soup = Soup(html, "lxml")
 
-                # ? Ad blocks
-                items = soup.find(
-                    "div", class_="items-items-kAJAg").find_all("div", class_="js-catalog-item-enum")
+                    # ? Ad blocks
+                    items = soup.find(
+                        "div", class_="items-items-kAJAg").find_all("div", class_="js-catalog-item-enum")
 
-                for item in items:
+                    for item in items:
 
-                    block = item.find("div", class_="iva-item-body-KLUuy")
+                        block = item.find("div", class_="iva-item-body-KLUuy")
 
-                    try:
-                        title = block.find(
-                            "div", class_="iva-item-titleStep-pdebR").text.strip()
-                    except:
-                        title = None
+                        try:
+                            title = block.find(
+                                "div", class_="iva-item-titleStep-pdebR").text.strip()
+                        except:
+                            title = None
 
-                    try:
-                        price = block.find(
-                            "div", class_="iva-item-priceStep-uq2CQ").find("span").find("span").find_all("meta")[1]["content"].strip()
-                    except:
-                        price = None
+                        try:
+                            price = block.find(
+                                "div", class_="iva-item-priceStep-uq2CQ").find("span").find("span").find_all("meta")[1]["content"].strip()
+                        except:
+                            price = None
 
-                    try:
-                        desc = block.find(
-                            "div", class_="iva-item-descriptionStep-C0ty1").text
-                    except Exception as ex:
-                        desc = None
+                        try:
+                            desc = block.find(
+                                "div", class_="iva-item-descriptionStep-C0ty1").text
+                        except Exception as ex:
+                            desc = None
 
-                    try:
-                        place = block.find(
-                            "div", class_="iva-item-geo-_Owyg").find("span").find("span", class_="geo-icons-uMILt")
-                    except:
-                        place = None
-
-                    try:
-                        if place:
-                            place = place.findNext("span").text.strip()
-                        else:
+                        try:
                             place = block.find(
-                                "div", class_="iva-item-geo-_Owyg").text.strip()
-                    except:
-                        place = None
+                                "div", class_="iva-item-geo-_Owyg").find("span").find("span", class_="geo-icons-uMILt")
+                        except:
+                            place = None
 
-                    try:
-                        created = block.find("div", class_="iva-item-dateInfoStep-_acjp").find(
-                            "div", class_="text-color-noaccent-P1Rfs").text.strip()
-                    except:
-                        created = None
+                        try:
+                            if place:
+                                place = place.findNext("span").text.strip()
+                            else:
+                                place = block.find(
+                                    "div", class_="iva-item-geo-_Owyg").text.strip()
+                        except:
+                            place = None
 
-                    try:
-                        link = block.find(
-                            "div", class_="iva-item-titleStep-pdebR").find("a")["href"]
-                        link = f"https://www.avito.ru{link}"
-                    except:
-                        link = None
+                        try:
+                            created = block.find("div", class_="iva-item-dateInfoStep-_acjp").find(
+                                "div", class_="text-color-noaccent-P1Rfs").text.strip()
+                        except:
+                            created = None
 
-                    # ? Appends data
-                    title_list.append(title)
+                        try:
+                            link = block.find(
+                                "div", class_="iva-item-titleStep-pdebR").find("a")["href"]
+                            link = f"https://www.avito.ru{link}"
+                        except:
+                            link = None
 
-                    data_list.append({
-                        "Цена": price,
-                        "Описание": desc,
-                        "Расположение": place,
-                        "Создано": created,
-                        "Ссылка": link
-                    })
+                        # ? Appends data
+                        title_list.append(title)
+
+                        data_list.append({
+                            "Цена": price,
+                            "Описание": desc,
+                            "Расположение": place,
+                            "Создано": created,
+                            "Ссылка": link
+                        })
 
     except Exception as ex:
         cprint(f"[INFO_ERROR] {repr(ex)}", "red")
     finally:
         # ? Removes all files in dir
-        for file in os.listdir(path):
+        for file in os.listdir(".\\bin"):
             if file.endswith("html"):
-                os.remove(f"{path}\\{file}")
+                os.remove(f".\\bin\\{file}")
         return data_list
 
 
@@ -273,7 +276,7 @@ async def create_json(text_search):
                     pass
                 data_dict[title_list[i]] = item
 
-            async with aiofiles.open(f".\\bin\\avito\\{text_search}.json", "w", encoding="utf-8") as f:
+            async with aiofiles.open(f".\\bin\\{text_search}.json", "w", encoding="utf-8") as f:
                 await f.write(json.dumps(data_dict, indent=4, ensure_ascii=False))
 
             cprint(
@@ -291,7 +294,7 @@ async def create_csv(text_search):
             text_search = (translit(text_search.replace(
                 " ", "_"), language_code="ru", reversed=True)).lower()
 
-            async with aiofiles.open(f".\\bin\\avito\\{text_search}.csv", "w", encoding="utf-8") as f:
+            async with aiofiles.open(f".\\bin\\{text_search}.csv", "w", encoding="utf-8") as f:
                 writer = AsyncWriter(f)
                 await writer.writerow(
                     (
@@ -304,7 +307,7 @@ async def create_csv(text_search):
                     )
                 )
             for i, item in enumerate(data_list):
-                async with aiofiles.open(f".\\bin\\avito\\{text_search}.csv", "a", encoding="utf-8") as f:
+                async with aiofiles.open(f".\\bin\\{text_search}.csv", "a", encoding="utf-8") as f:
                     writer = AsyncWriter(f)
                     await writer.writerow(
                         (
@@ -335,7 +338,7 @@ async def parse_avito(text_search, cat, min_price=0, max_price=0, sort=0, city="
 
 async def main():
     text_search = input("Введите запрос >>> ")
-    cat = await get_category()
+    cat = input("Введите категорию >>> ")
     min_price = input("Введите MIN цену >>> ")
     max_price = input("Введите MAX цену >>> ")
     city = input("Введите город >>> ")

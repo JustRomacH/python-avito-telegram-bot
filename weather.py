@@ -31,7 +31,7 @@ async def get_weather_data(session, city="Moscow"):  # ? Получает пог
             city_name = r_geo["local_names"]["ru"]
 
             # ? Json with short weather descriptions
-            async with aiofiles.open(".\\bin\\weather_desc.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open(".\\bin\\jsons\\weather_desc.json", "r", encoding="utf-8") as f:
                 weather_desc = json.loads(await f.read())
 
             weather_main = weather_desc[r_weather["weather"][0]["main"]]
