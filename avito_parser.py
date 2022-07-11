@@ -2,13 +2,13 @@ import json
 import aiofiles
 import asyncio
 import os
+from testik import get_category
 from termcolor import cprint
 from aiocsv import AsyncWriter
 from config import proxy
 from transliterate import translit
 from bs4 import BeautifulSoup as Soup
 from transliterate import slugify
-from datetime import datetime
 from fake_useragent import UserAgent
 from selenium import webdriver
 from selenium_stealth import stealth
@@ -51,12 +51,12 @@ def set_driver_options():
 
 
 # ? Gets html file of every page
-async def get_html(search_text, min_price=0, max_price=0, sort=0, city="москва"):
+async def get_html(search_text, cat, min_price, max_price, sort, city):
 
     global path
     path = ".\\bin\\avito"
 
-    # ? Delete al files in Avito directory
+    # ? Delete all files in Avito directory
     for file in os.listdir(path):
         os.remove(f"{path}\\{file}")
 
@@ -78,7 +78,7 @@ async def get_html(search_text, min_price=0, max_price=0, sort=0, city="моск
     if not sort:
         sort = 0
 
-    url = f"https://www.avito.ru/{city}//?q={'+'.join(search_text.split())}&s={sort}"
+    url = f"https://www.avito.ru/{city}/{cat}?q={'+'.join(search_text.split())}&s={sort}"
 
     try:
         driver.get(url)
@@ -323,8 +323,8 @@ async def create_csv(text_search):
 
 
 # ? All in one
-async def parse_avito(text_search, min_price=0, max_price=0, sort=0, city="москва"):
-    await get_html(text_search, min_price=min_price, max_price=max_price, city=city, sort=sort)
+async def parse_avito(text_search, cat, min_price=0, max_price=0, sort=0, city="москва"):
+    await get_html(text_search, cat=cat, min_price=min_price, max_price=max_price, city=city, sort=sort)
     await get_info()
     await create_json(text_search)
     await create_csv(text_search)
@@ -335,11 +335,12 @@ async def parse_avito(text_search, min_price=0, max_price=0, sort=0, city="мо�
 
 async def main():
     text_search = input("Введите запрос >>> ")
+    cat = await get_category()
     min_price = input("Введите MIN цену >>> ")
     max_price = input("Введите MAX цену >>> ")
     city = input("Введите город >>> ")
     sort = input("Введите сортировку >>> ")
-    await parse_avito(text_search, min_price, max_price, sort, city)
+    await parse_avito(text_search, cat, min_price, max_price, sort, city)
 
 
 if __name__ == "__main__":

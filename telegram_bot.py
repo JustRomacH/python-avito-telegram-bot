@@ -1,4 +1,6 @@
+from gc import callbacks
 import os
+from sys import prefix
 from config import tg_token
 from course import *
 from weather import *
@@ -6,10 +8,11 @@ from data_base import *
 from print_funcs import *
 from avito_parser import *
 from aiogram.dispatcher import FSMContext
+from aiogram.utils.callback_data import CallbackData
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram import Bot, Dispatcher, executor, types
 
 
@@ -18,6 +21,11 @@ bot = Bot(token=tg_token, parse_mode="html")
 dp = Dispatcher(bot, storage=storage)
 
 commands_names = ["Авито 🏬", "Курс 📈", "Погода 🌧️", "Город 🏘️", "Мой город 🏠"]
+
+
+category_callback = CallbackData("cat", "button_name")
+
+podcategory_callback = CallbackData("podcat", "button_name")
 
 
 async def main():
@@ -48,8 +56,9 @@ async def set_commands(bot: Bot):
 
 # * States for Avito
 class Avito(StatesGroup):
-    avito_start = State()
     search_text = State()
+    category = State()
+    subcategory = State()
     min_price = State()
     max_price = State()
     sort = State()
@@ -169,46 +178,124 @@ async def set_sity(message: types.Message, state: FSMContext):
 
 
 #! Avito
-# ? Asks for search text
 @dp.message_handler(Text(equals=commands_names[0]))
 @dp.message_handler(commands=["avito", "parse"])
-async def avito_parse(message: types.Message):
+async def get_search_text(message: types.Message):  # ? Gets search text
     await message.answer("<b>Введите поисковой запрос</b>")
-    await Avito.avito_start.set()
+    await Avito.search_text.set()
 
 
-@dp.message_handler(state=Avito.avito_start)  # ? Asks for MIN price
-async def get_search_text(message: types.Message, state: FSMContext):
+@dp.message_handler(state=Avito.search_text)  # ? Gets category
+async def get_category(message: types.Message, state: FSMContext):
+
+    # ? Write search text to state
     search_text = message.text
     await state.update_data(search_text=search_text)
-    await message.answer("<b>Введите минимальную цену</b>")
+
+    # ? Inline keyboard
+    cat_keyboard = InlineKeyboardMarkup(row_width=2)
+
+    # ? Json with all categories on russian
+    async with aiofiles.open(".\\bin\\avito_categories_ru.json", "r", encoding="utf-8") as f:
+        categories_ru = json.loads(await f.read())
+
+    # ? Add all buttons to inline keyboard
+    for category in categories_ru:
+        cat_btn = InlineKeyboardButton(
+            text=category, callback_data=category_callback.new(button_name=category))
+        cat_keyboard.insert(cat_btn)
+
+    await message.answer("<b>Выберите категорию</b>", reply_markup=cat_keyboard)
+    await Avito.category.set()
+
+
+# ? Gets subcategory
+@dp.callback_query_handler(category_callback.filter(), state=Avito.category)
+async def get_subcategory(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
+
+    # ? Gets category name
+    cat = callback_data.get("button_name")
+    await state.update_data(cat=cat)
+
+    # ? Json with all categories on rus
+    async with aiofiles.open(".\\bin\\avito_categories_ru.json", "r", encoding="utf-8") as f:
+        data_ru = json.loads(await f.read())
+
+    match cat.lower():
+        case "любая категория":
+            podcategory = ""
+            await state.update_data(podcategory=podcategory)
+            await Avito.min_price.set()
+        case _:
+            try:
+                # ? Inline keyboard
+                podcat_keyboard = InlineKeyboardMarkup(row_width=2)
+
+                # ? Goes through all the subcategories
+                for podcat in data_ru[cat.capitalize()]:
+                    podcat_btn = InlineKeyboardButton(
+                        text=podcat, callback_data=podcategory_callback.new(
+                            button_name=podcat
+                        ))
+                    podcat_keyboard.insert(podcat_btn)
+
+                await call.message.answer("<b>Выберите подкатегорию</b>", reply_markup=podcat_keyboard)
+                await Avito.subcategory.set()
+
+            except:
+                podcategory = ""
+
+
+# ? Gets min price
+@dp.callback_query_handler(podcategory_callback.filter(), state=Avito.subcategory)
+async def get_min_price(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
+
+    # ? Get category and subcategory
+    cat = (await state.get_data()).get("cat")
+    podcat = callback_data.get("button_name")
+
+    # ? Jsons with all categories
+    async with aiofiles.open(".\\bin\\avito_categories_en.json", "r", encoding="utf-8") as f:
+        data_en = json.loads(await f.read())
+    async with aiofiles.open(".\\bin\\avito_cat_translit.json", "r", encoding="utf-8") as f:
+        data_translit = json.loads(await f.read())
+
+    # ? Translit from rus to eng
+    translit_cat = data_en[data_translit[cat.capitalize()]]
+    podcategory = translit_cat[podcat.capitalize()]
+    await state.update_data(podcategory=podcategory)
+
+    await call.message.answer("<b>Введите минимальную цену</b>")
+
     await Avito.min_price.set()
 
 
-@dp.message_handler(state=Avito.min_price)  # ? Asks for MAX price
-async def get_min_price(message: types.Message, state: FSMContext):
+@dp.message_handler(state=Avito.min_price)  # ? Gets max price
+async def get_max_price(message: types.Message, state: FSMContext):
     min_price = message.text
     await state.update_data(min_price=min_price)
     await message.answer("<b>Введите максимальную цену</b>")
     await Avito.max_price.set()
 
 
-@dp.message_handler(state=Avito.max_price)  # ? Asks for sort
-async def get_max_price(message: types.Message, state: FSMContext):
+@dp.message_handler(state=Avito.max_price)  # ? Gets sort
+async def get_sort(message: types.Message, state: FSMContext):
     max_price = message.text
     await state.update_data(max_price=max_price)
     await message.answer("<b>Выберите сортировку</b>\n\n0 - по умолчанию\n1 - сначала дешёвые\n2 - сначала дорогие")
     await Avito.sort.set()
 
 
-@dp.message_handler(state=Avito.sort)  # ? Scraps Avito or asks for city
-async def get_sort(message: types.Message, state: FSMContext):
+# ? Scrap Avito if user city in db or asks for city
+@dp.message_handler(state=Avito.sort)
+async def get_city(message: types.Message, state: FSMContext):
     sort = message.text
     await state.update_data(sort=sort)
     try:
         await state.update_data(city=await get_user_city(message.from_id))
         try:
             search_text = (await state.get_data()).get("search_text")
+            podcat = (await state.get_data()).get("podcategory")
             min_price = (await state.get_data()).get("min_price")
             max_price = (await state.get_data()).get("max_price")
             sort = (await state.get_data()).get("sort")
@@ -217,6 +304,7 @@ async def get_sort(message: types.Message, state: FSMContext):
 
             file_name = await parse_avito(
                 text_search=search_text,
+                cat=podcat,
                 min_price=min_price,
                 max_price=max_price,
                 sort=sort,
@@ -240,12 +328,13 @@ async def get_sort(message: types.Message, state: FSMContext):
         await Avito.city.set()
 
 
-@dp.message_handler(state=Avito.city)  # ? Scraps Avito
-async def get_city(message: types.Message, state: FSMContext):
+@dp.message_handler(state=Avito.city)  # ? Scrap Avito
+async def scrap_avito(message: types.Message, state: FSMContext):
     city = message.text
     await state.update_data(city=city)
     try:
         search_text = (await state.get_data()).get("search_text")
+        podcat = (await state.get_data()).get("podcategory")
         min_price = (await state.get_data()).get("min_price")
         max_price = (await state.get_data()).get("max_price")
         sort = (await state.get_data()).get("sort")
@@ -254,6 +343,7 @@ async def get_city(message: types.Message, state: FSMContext):
 
         file_name = await parse_avito(
             text_search=search_text,
+            cat=podcat,
             min_price=min_price,
             max_price=max_price,
             sort=sort,
