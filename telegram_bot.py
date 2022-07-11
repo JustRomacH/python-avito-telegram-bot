@@ -223,6 +223,7 @@ async def get_subcategory(call: types.CallbackQuery, callback_data: dict, state=
         case "любая категория":
             podcategory = ""
             await state.update_data(podcategory=podcategory)
+            await call.message.answer("<b>Введите минимальную цену</b>")
             await Avito.min_price.set()
         case _:
             try:
@@ -298,7 +299,7 @@ async def get_city(message: types.Message, state: FSMContext):
             max_price = (await state.get_data()).get("max_price")
             sort = (await state.get_data()).get("sort")
             city_name = (await state.get_data()).get("city")
-            await message.answer("Пожалуйста, подождите...")
+            await message.answer("<b>Пожалуйста, подождите...</b>")
 
             file_name = await parse_avito(
                 text_search=search_text,
@@ -337,7 +338,7 @@ async def scrap_avito(message: types.Message, state: FSMContext):
         max_price = (await state.get_data()).get("max_price")
         sort = (await state.get_data()).get("sort")
         city_name = (await state.get_data()).get("city")
-        await message.answer("Пожалуйста, подождите...")
+        await message.answer("<b>Пожалуйста, подождите...</b>")
 
         file_name = await parse_avito(
             text_search=search_text,
