@@ -1,4 +1,3 @@
-from logging import exception
 from pyfiglet import Figlet
 from termcolor import cprint
 
