@@ -368,6 +368,7 @@ if __name__ == '__main__':
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(set_commands(bot=bot))
+        logo("cyan")
         info("Бот успешно запущен")
         executor.start_polling(dp)
     except Exception as ex:
