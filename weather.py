@@ -68,15 +68,13 @@ class Weather:
 
 
 class City_info:
-    def __init__(self):
-        self.session = requests.session()
 
     def get_coords(self, city: str) -> tuple:  # ? Returns tuple with city coords
         try:
             url = f"http://api.openweathermap.org/geo/1.0/direct?q={self.get_city_name(city)}&appid={weather_token}"
 
             # ? City location
-            r_geo = self.session.get(url).json()[0]
+            r_geo = requests.get(url).json()[0]
 
             # * City Latitude and Longitude
             city_lat = r_geo["lat"]
@@ -92,7 +90,7 @@ class City_info:
         try:
 
             # ? City location
-            r_geo = self.session.get(
+            r_geo = requests.get(
                 f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}").json()[0]
 
             # * Full city name
