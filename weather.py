@@ -8,7 +8,7 @@ from config import weather_token, error_answer
 
 
 # ? Gets city weather
-async def get_weather_data(session, city="Moscow"):  # ? Получает погоду
+async def get_weather_data(session: aiohttp.ClientSession, city: str) -> str:
     global weather
 
     url = f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}"
@@ -80,7 +80,7 @@ async def get_weather_data(session, city="Moscow"):  # ? Получает пог
 
 
 # ? Creates tasks
-async def get_weather(city="Moscow"):
+async def get_weather(city: str) -> str:
     async with aiohttp.ClientSession() as session:
         tasks = []
         task = asyncio.create_task(get_weather_data(session, city))
@@ -90,7 +90,7 @@ async def get_weather(city="Moscow"):
 
 
 # ? Returns full city's name
-async def get_city_name(city_abbr):
+async def get_city_name(city_abbr: str) -> str:
     try:
         async with aiohttp.ClientSession() as session:
             # ? City location

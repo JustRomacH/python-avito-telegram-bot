@@ -6,7 +6,7 @@ from config import host, port, user, password, db_name, error_answer
 
 
 # ? Connects to database
-async def connect():
+async def connect() -> aiomysql.Connection:
     try:
         conn = await aiomysql.connect(
             host=host,
@@ -18,6 +18,8 @@ async def connect():
             autocommit=True
         )
 
+        print(type(conn))
+
         return conn
 
     except Exception as ex:
@@ -26,7 +28,7 @@ async def connect():
 
 
 # ? Gets user's city name
-async def get_user_city(user_id):
+async def get_user_city(user_id: int) -> str:
     try:
         conn = await connect()
 
@@ -57,7 +59,7 @@ async def get_user_city(user_id):
 
 
 # ? Sets user city
-async def set_user_city(user_id, username, city):
+async def set_user_city(user_id: int, username: str, city: str) -> str:
     try:
 
         conn = await connect()

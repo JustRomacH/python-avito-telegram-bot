@@ -50,7 +50,7 @@ def set_driver_options():
 
 
 # ? Gets html file of every page
-async def get_html(search_text, cat, min_price, max_price, sort, city):
+async def get_html(search_text: str, cat: str, min_price: str | int, max_price: str | int, sort: str | int, city: str):
 
     # ? Delete all files in bin directory
     for file in os.listdir(".\\bin"):
@@ -169,7 +169,7 @@ async def get_html(search_text, cat, min_price, max_price, sort, city):
 
 
 # ? Gets info from every page
-async def get_info():
+async def get_info() -> list:
     global title_list, data_list
     try:
         title_list = []
@@ -257,7 +257,7 @@ async def get_info():
 
 
 # ? Creates json with all the ads
-async def create_json(text_search):
+async def create_json(text_search: str):
     try:
         if data_list:
 
@@ -287,7 +287,7 @@ async def create_json(text_search):
 
 
 # ? Creates csv with all the ads
-async def create_csv(text_search):
+async def create_csv(text_search: str):
     try:
         if data_list:
             # ? Changes search_text appearance
@@ -326,7 +326,7 @@ async def create_csv(text_search):
 
 
 # ? All in one
-async def parse_avito(text_search, cat, min_price=0, max_price=0, sort=0, city="москва"):
+async def parse_avito(text_search: str, cat: str, min_price: str | int, max_price: str | int, sort: str | int, city: str) -> str:
     await get_html(text_search, cat=cat, min_price=min_price, max_price=max_price, city=city, sort=sort)
     await get_info()
     await create_json(text_search)

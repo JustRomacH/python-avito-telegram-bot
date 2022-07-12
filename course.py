@@ -6,7 +6,7 @@ from print_funcs import error
 
 
 # ? Removes unnecessary nulls in float variable
-def remove_unnecessary_nulls(num):
+def remove_unnecessary_nulls(num: float) -> float:
     for i in range(len(str(num-int(num))[2:])):
         if str(num)[-1] == 0:
             num = str(num)[:len(str(num))-1]
@@ -16,7 +16,7 @@ def remove_unnecessary_nulls(num):
 
 
 # ? Removes brackets and their content
-def remove_text_between_parens(text):
+def remove_text_between_parens(text: str) -> str:
     n = 1
     while n:
         text, n = re.subn(r'\([^()]*\)', '', text)
@@ -24,7 +24,7 @@ def remove_text_between_parens(text):
 
 
 # ? Returns message content for telegram
-async def get_cur_course(session, cur="usd"):
+async def get_cur_course(session: aiohttp.ClientSession, cur: str) -> str:
     global answer
     try:
 
@@ -100,8 +100,8 @@ async def get_cur_course(session, cur="usd"):
     return answer
 
 
-# ? Create tasks for get-cur_course fuction
-async def get_course_data(cur):
+# ? Create tasks for get_cur_course fuction
+async def get_course_data(cur: str) -> str:
     async with aiohttp.ClientSession() as session:
         tasks = []
         task = asyncio.create_task(get_cur_course(session, cur))
