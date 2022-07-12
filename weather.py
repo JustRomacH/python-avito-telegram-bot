@@ -1,38 +1,26 @@
-import asyncio
-import aiohttp
-import aiofiles
+import requests
 import json
-from print_funcs import *
+from print_funcs import error
 from datetime import datetime
 from config import weather_token, error_answer
 
 
-# ? Gets city weather
-async def get_weather_data(session: aiohttp.ClientSession, city: str) -> str:
-    global weather
+class Weather:
+    def get_weather(self, city: str) -> str:  # ? Gets city weather
 
-    url = f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}"
+        try:
+            city_lat, city_lon = City_info().get_coords(city)
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={city_lat}&lon={city_lon}&appid={weather_token}&units=metric"
 
-    try:
-        async with session.get(url) as r_geo:
-
-            # ? City location
-            r_geo = (await r_geo.json(content_type=None))[0]
-
-            # * City Latitude and Longitude
-            city_lat = r_geo["lat"]
-            city_lon = r_geo["lon"]
-
-        async with session.get(f"https://api.openweathermap.org/data/2.5/weather?lat={city_lat}&lon={city_lon}&appid={weather_token}&units=metric") as r_weather:
             # ? Weather dict
-            r_weather = await r_weather.json()
-
-            # * Variables
-            city_name = r_geo["local_names"]["ru"]
+            r_weather = requests.get(url).json()
 
             # ? Json with short weather descriptions
-            async with aiofiles.open(".\\bin\\jsons\\weather_desc.json", "r", encoding="utf-8") as f:
-                weather_desc = json.loads(await f.read())
+            with open(".\\bin\\jsons\\weather_desc.json", "r", encoding="utf-8") as f:
+                weather_desc = json.load(f)
+
+            # * Variables
+            city_name = city
 
             weather_main = weather_desc[r_weather["weather"][0]["main"]]
 
@@ -58,64 +46,72 @@ async def get_weather_data(session: aiohttp.ClientSession, city: str) -> str:
 
             weather = (
                 f"<b>Погода в {city_name}:</b>\n"
-                f"Краткое описание:  {weather_main};\n"
-                f"Температура:  {temp}°C, ощущается как  {feels_temp}°C;\n"
-                f"Влажность:  {humidity}%;  Давление:  {pressure} мм.рт.ст;\n"
-                f"Скорость ветра:  {wind_speed} м/с;  Продолжительность дня:  {day_length};\n"
-                f"Время рассвета:  {sunrise};  Время заката:  {sunset};"
+                f"Краткое описание:  {weather_main}\n"
+                f"Температура:  {temp}°C, ощущается как  {feels_temp}°C\n"
+                f"Влажность:  {humidity}%;  Давление:  {pressure} мм.рт.ст\n"
+                f"Скорость ветра:  {wind_speed} м/с;  Продолжительность дня:  {day_length}\n"
+                f"Время рассвета:  {sunrise};  Время заката:  {sunset}"
             )
+
+        except Exception as ex:
+
+            weather = (f"<b>Похоже, произошла ошибка</b>\n\n"
+                       f"После команды нужно написать город\n"
+                       f"Пример: <b>/weather москва</b>\n\n"
+                       f"Также проверьте название города")
+
+            error("WTHR", ex)
+
+        finally:
 
             return weather
 
-    except Exception as ex:
 
-        weather = (f"<b>Похоже, произошла ошибка</b>\n\n"
-                   f"После команды нужно написать город\n"
-                   f"Пример: <b>/weather москва</b>\n\n"
-                   f"Также проверьте название города")
+class City_info:
+    def get_coords(self, city: str) -> tuple:  # ? Returns tuple with city coords
+        try:
+            url = f"http://api.openweathermap.org/geo/1.0/direct?q={self.get_city_name(city)}&appid={weather_token}"
 
-        error("WTHR", ex)
-
-        return weather
-
-
-# ? Creates tasks
-async def get_weather(city: str) -> str:
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        task = asyncio.create_task(get_weather_data(session, city))
-        tasks.append(task)
-        await asyncio.gather(*tasks)
-        return weather
-
-
-# ? Returns full city's name
-async def get_city_name(city_abbr: str) -> str:
-    try:
-        async with aiohttp.ClientSession() as session:
             # ? City location
-            r_geo = await session.get(
-                f"http://api.openweathermap.org/geo/1.0/direct?q={city_abbr}&appid={weather_token}")
-            r_geo = (await r_geo.json())[0]
+            r_geo = requests.get(url).json()[0]
+
+            # * City Latitude and Longitude
+            city_lat = r_geo["lat"]
+            city_lon = r_geo["lon"]
+
+        except Exception as ex:
+            error("COORDS", ex)
+
+        return city_lat, city_lon
+
+    def get_city_name(self, city: str) -> str:  # ? Returns full city's name
+
+        try:
+
+            # ? City location
+            r_geo = requests.get(
+                f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}").json()[0]
 
             # * Full city name
-            city_name = r_geo["local_names"]["ru"]
+            city_name = r_geo.get("local_names").get("ru")
 
-    except IndexError as ex:
-        city_name = error_answer
-    except Exception as ex:
-        city_name = error_answer
-        error("WTHR", ex)
-    finally:
-        return city_name
+        except IndexError as ex:
+            city_name = error_answer
+
+        except Exception as ex:
+            city_name = error_answer
+            error("WTHR", ex)
+
+        finally:
+            return city_name
 
 
-async def main():
+def main():
     city = input("Введите город >>> ")
-    print(await get_weather(city))
-    print(await get_city_name(city))
+    city = City_info().get_city_name(city)
+    weather = Weather()
+    print(weather.get_weather(city))
 
 
 if __name__ == "__main__":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main())
+    main()

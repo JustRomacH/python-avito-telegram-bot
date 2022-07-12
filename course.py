@@ -1,58 +1,65 @@
-import aiohttp
-import asyncio
+import requests
 import re
+from transliterate import translit
 from config import error_answer
 from print_funcs import error
 
 
-# ? Removes unnecessary nulls in float variable
-def remove_unnecessary_nulls(num: float) -> float:
-    for i in range(len(str(num-int(num))[2:])):
-        if str(num)[-1] == 0:
-            num = str(num)[:len(str(num))-1]
-        else:
-            break
-    return num
+class Format_var:
+    # ? Removes unnecessary nulls in float variable
+    def remove_unnecessary_nulls(self, num: float) -> float:
+        for _ in range(len(str(num-int(num))[2:])):
+            if str(num)[-1] == 0:
+                num = str(num)[:len(str(num))-1]
+            else:
+                break
+        return num
+
+    # ? Removes brackets and their content
+    def remove_text_between_parens(self, text: str) -> str:
+        n = 1
+        while n:
+            text, n = re.subn(r'\([^()]*\)', '', text)
+        return text
+
+    def format_to_file_name(self, text: str) -> str:
+        text = text.replace(" ", "_")
+        text = (translit(text, language_code="ru", reversed=True)).lower()
+        return text
 
 
-# ? Removes brackets and their content
-def remove_text_between_parens(text: str) -> str:
-    n = 1
-    while n:
-        text, n = re.subn(r'\([^()]*\)', '', text)
-    return text
+class Course:
+    # ? Returns message content for telegram
+    def get_course(self, cur: str) -> str:
+        try:
 
+            format_var = Format_var()
 
-# ? Returns message content for telegram
-async def get_cur_course(session: aiohttp.ClientSession, cur: str) -> str:
-    global answer
-    try:
+            url = "https://www.cbr-xml-daily.ru/daily_json.js"
 
-        url = "https://www.cbr-xml-daily.ru/daily_json.js"
-
-        async with session.get(url) as r:
-
-            r = await r.json(content_type=None)
+            r = requests.get(url).json()
 
             if cur is None or cur == "":
                 cur = "usd"
 
-            match cur.lower():
-                case "rub":
+            format_var = Format_var()
 
+            match cur.lower():
+
+                case "rub":
                     # ? Currency info
 
                     cur_abbr = "RUB"
 
                     cur_name = "Российский Рубль"
 
-                    cur_value = float(remove_unnecessary_nulls(
+                    cur_value = float(format_var.remove_unnecessary_nulls(
                         round(1 / r["Valute"]["USD"]["Value"], 4)))
 
-                    cur_previous_value = float(remove_unnecessary_nulls(
+                    cur_previous_value = float(format_var.remove_unnecessary_nulls(
                         round(1 / r["Valute"]["USD"]["Previous"], 4)))
 
-                    cur_change = abs(remove_unnecessary_nulls(
+                    cur_change = abs(format_var.remove_unnecessary_nulls(
                         round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
 
                     if cur_previous_value > cur_value:
@@ -69,16 +76,16 @@ async def get_cur_course(session: aiohttp.ClientSession, cur: str) -> str:
                 case _:
                     cur_abbr = r["Valute"][cur.upper()]["CharCode"]
 
-                    cur_name = remove_text_between_parens(
+                    cur_name = format_var.remove_text_between_parens(
                         r["Valute"][cur.upper()]["Name"].strip())
 
-                    cur_value = remove_unnecessary_nulls(
+                    cur_value = format_var.remove_unnecessary_nulls(
                         round(r["Valute"][cur.upper()]["Value"], 2))
 
-                    cur_previous_value = remove_unnecessary_nulls(
+                    cur_previous_value = format_var.remove_unnecessary_nulls(
                         round(r["Valute"][cur.upper()]["Previous"], 2))
 
-                    cur_change = abs(remove_unnecessary_nulls(
+                    cur_change = abs(format_var.remove_unnecessary_nulls(
                         round(((cur_previous_value - cur_value) / cur_previous_value) * 100, 2)))
 
                     if cur_previous_value > cur_value:
@@ -92,29 +99,19 @@ async def get_cur_course(session: aiohttp.ClientSession, cur: str) -> str:
                               f"Предыдущее значение:  {cur_previous_value}₽\n"
                               f"Изменение:  {cur_change}% {change_emoji}")
 
-    except Exception as ex:
+        except Exception as ex:
 
-        error('CUR', ex)
-        answer = error_answer
+            error('CUR', ex)
+            answer = error_answer
 
-    return answer
-
-
-# ? Create tasks for get_cur_course fuction
-async def get_course_data(cur: str) -> str:
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        task = asyncio.create_task(get_cur_course(session, cur))
-        tasks.append(task)
-        await asyncio.gather(*tasks)
         return answer
 
 
-async def main():
+def main():
     cur = input("Введите валюту >>> ")
-    print(await get_course_data(cur))
+    course = Course()
+    print(course.get_course(cur))
 
 
 if __name__ == "__main__":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main())
+    main()

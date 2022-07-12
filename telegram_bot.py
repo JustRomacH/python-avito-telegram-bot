@@ -1,10 +1,13 @@
 import os
+import json
+import asyncio
+import aiofiles
 from config import tg_token
-from course import *
-from weather import *
-from data_base import *
+from course import Course
+from weather import Weather, City_info
+from data_base import DataBase
 from print_funcs import *
-from avito_parser import *
+from avito_parser import Avito_scraper
 from aiogram.dispatcher import FSMContext
 from aiogram.utils.callback_data import CallbackData
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -15,11 +18,13 @@ from aiogram import Bot, Dispatcher, executor, types
 
 
 storage = MemoryStorage()
+course = Course()
+city_info = City_info()
+database = DataBase()
 bot = Bot(token=tg_token, parse_mode="html")
 dp = Dispatcher(bot, storage=storage)
 
 commands_names = ["Авито 🏬", "Курс 📈", "Погода 🌧️", "Город 🏘️", "Мой город 🏠"]
-
 
 category_callback = CallbackData("cat", "button_name")
 
@@ -68,7 +73,7 @@ class City(StatesGroup):
     city_start = State()
 
 
-# ! Start
+#! Start
 @dp.message_handler(commands=["start"])
 async def start_command(message: types.Message):
     # ? Main keyboard
@@ -97,13 +102,12 @@ async def send_commands(message: types.Message):
     await message.answer(answer)
 
 
-# ! Course
+#! Course
 @dp.message_handler(Text(equals=commands_names[1]))
 @dp.message_handler(commands=["course", "cur"])
 async def cur_course(message: types.Message):
     try:
-
-        await message.answer(await get_course_data(message.get_args()))
+        await message.answer(course.get_course(message.get_args()))
 
     except IndexError as ex:
 
@@ -116,7 +120,7 @@ async def cur_course(message: types.Message):
         error("BOT", ex)
 
 
-# ! Weather
+#! Weather
 @dp.message_handler(Text(equals=commands_names[2]))
 @dp.message_handler(commands=["weather", "wthr", "street", "temp"])
 async def weather(message: types.Message):
@@ -124,25 +128,34 @@ async def weather(message: types.Message):
         # * User's id
         user_id = message.from_id
 
-        if message.get_args():
-            await message.answer(await get_weather(message.get_args()))
-        else:
-            try:
-                await message.answer(await get_weather(await get_user_city(user_id)))
-            except Exception:
-                await message.answer(
-                    f"Введите город в котором находитесь с помощью <b>\"/city\"</b>\n\n"
-                    f"Пример: <b>/city Москва</b>")
+        match message.get_args():
+
+            # ? If message haven't args
+            case None:
+                # ? Try get user's city from DB
+                try:
+                    city = database.get_user_city(user_id)
+                    await message.answer(Weather().get_weather(city))
+                # ? If user not in DB
+                except Exception:
+                    await message.answer(
+                        f"Введите город в котором находитесь с помощью <b>\"/city\"</b>\n\n"
+                        f"Пример: <b>/city Москва</b>")
+
+            # ? if message have args
+            case _:
+                await message.answer(weather.get_weather(message.get_args()))
+
     except Exception as ex:
         error("BOT", ex)
 
 
-# ! My city
+#! My city
 @dp.message_handler(Text(equals=commands_names[4]))
 @dp.message_handler(commands=["my_city", "get_city"])
 async def city(message: types.Message):
     try:
-        await message.answer(f"Ваш город: {await get_user_city(message.from_id)}")
+        await message.answer(f"Ваш город: {database.get_user_city(message.from_id)}")
     except:
         await message.answer("Ваш город ещё не записан")
 
@@ -163,10 +176,10 @@ async def set_sity(message: types.Message, state: FSMContext):
         # * Данные пользователя
         user_id = message.from_id
         username = message.from_user
-        user_city = await get_city_name(message.text)
+        user_city = city_info.get_city_name(message.text)
 
         # ? Записывает город в БД
-        await message.answer(await set_user_city(user_id, username, user_city))
+        await message.answer(database.set_user_city(user_id, username, user_city))
 
         await state.finish()
 
@@ -242,7 +255,9 @@ async def get_subcategory(call: types.CallbackQuery, callback_data: dict, state=
                 await Avito.subcategory.set()
 
             except:
-                podcategory = ""
+                await state.update_data(podcategory=podcategory)
+                await call.message.answer("<b>Введите минимальную цену</b>")
+                await Avito.min_price.set()
 
 
 # ? Gets min price
@@ -291,7 +306,7 @@ async def get_city(message: types.Message, state: FSMContext):
     sort = message.text
     await state.update_data(sort=sort)
     try:
-        await state.update_data(city=await get_user_city(message.from_id))
+        await state.update_data(city=database.get_user_city(message.from_id))
         try:
             search_text = (await state.get_data()).get("search_text")
             podcat = (await state.get_data()).get("podcategory")
@@ -301,14 +316,13 @@ async def get_city(message: types.Message, state: FSMContext):
             city_name = (await state.get_data()).get("city")
             await message.answer("Пожалуйста, подождите...")
 
-            file_name = await parse_avito(
-                text_search=search_text,
+            file_name = await Avito_scraper(
+                search=search_text,
                 cat=podcat,
                 min_price=min_price,
                 max_price=max_price,
                 sort=sort,
-                city=city_name
-            )
+                city=city_name).parse_avito()
 
             file_json = f"{file_name}.json"
             file_csv = f"{file_name}.csv"
@@ -340,14 +354,13 @@ async def scrap_avito(message: types.Message, state: FSMContext):
         city_name = (await state.get_data()).get("city")
         await message.answer("Пожалуйста, подождите...")
 
-        file_name = await parse_avito(
-            text_search=search_text,
+        file_name = await Avito_scraper(
+            search=search_text,
             cat=podcat,
             min_price=min_price,
             max_price=max_price,
             sort=sort,
-            city=city_name
-        )
+            city=city_name).parse_avito()
 
         file_json = f"{file_name}.json"
         file_csv = f"{file_name}.csv"
@@ -365,10 +378,10 @@ async def scrap_avito(message: types.Message, state: FSMContext):
 
 if __name__ == '__main__':
     try:
+        # logo("cyan")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(set_commands(bot=bot))
-        logo("cyan")
         info("Бот успешно запущен")
         executor.start_polling(dp)
     except Exception as ex:

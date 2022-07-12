@@ -1,24 +1,21 @@
-import aiomysql
-import asyncio
+import pymysql
 from print_funcs import *
-from weather import get_city_name
+from weather import City_info
 from config import host, port, user, password, db_name, error_answer
 
 
 # ? Connects to database
-async def connect() -> aiomysql.Connection:
+def connect() -> pymysql.Connection:
     try:
-        conn = await aiomysql.connect(
+        conn = pymysql.connect(
             host=host,
             port=port,
             user=user,
             password=password,
-            db=db_name,
-            cursorclass=aiomysql.cursors.DictCursor,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor,
             autocommit=True
         )
-
-        print(type(conn))
 
         return conn
 
@@ -27,77 +24,68 @@ async def connect() -> aiomysql.Connection:
         error("DB", ex)
 
 
-# ? Gets user's city name
-async def get_user_city(user_id: int) -> str:
-    try:
-        conn = await connect()
+class DataBase:
+    def __init__(self):
+        self.conn = connect()
 
-        async with conn.cursor() as cursor:
-
-            try:
-                # ? Writes data to the table
-                sel_city = f"SELECT city FROM city WHERE user_id = \'{user_id}\'"
-                await cursor.execute(sel_city)
-                city = await cursor.fetchone()
-                city = city["city"]
-
-            except Exception as ex:
-                await error("DB", ex)
-                city = error_answer
-
-    except Exception as ex:
-
-        error("DB", ex)
-        city = error_answer
-
-    finally:
+    # ? Gets user's city name
+    def get_user_city(self, user_id: int) -> str:
         try:
-            conn.close()
-        except:
-            pass
-        return city
+            with self.conn.cursor() as cursor:
 
-
-# ? Sets user city
-async def set_user_city(user_id: int, username: str, city: str) -> str:
-    try:
-
-        conn = await connect()
-
-        async with conn.cursor() as cursor:
-            if city != error_answer:
                 try:
                     # ? Writes data to the table
-                    insert_data = f"""INSERT INTO city (user_id, username, city) VALUES ({user_id}, \'{username}\', \'{city}\');"""
-                    await cursor.execute(insert_data)
-                    answer = (f"<b>Город принят</b>\n\n"
-                              f"Теперь вы можете использовать команды без указания города!")
-                except:
-                    # ? If user's city already in database
-                    update_data = f"""UPDATE city SET city = \'{city}\' WHERE user_id = {user_id};"""
-                    await cursor.execute(update_data)
-                    answer = (f"<b>Город принят</b>\n\n"
-                              f"Теперь вы можете использовать команды без указания города!")
-            else:
-                answer = error_answer
-    except Exception as ex:
-        error("DB", ex)
-        answer = error_answer
-    finally:
+                    sel_city = f"SELECT city FROM city WHERE user_id = \'{user_id}\'"
+                    cursor.execute(sel_city)
+                    city = cursor.fetchone()
+                    city = city.get("city")
+
+                except Exception as ex:
+                    error("DB", ex)
+                    city = error_answer
+
+        except Exception as ex:
+
+            error("DB", ex)
+            city = error_answer
+
+        finally:
+            return city
+
+    # ? Sets user city
+    def set_user_city(self, user_id: int, username: str, city: str) -> str:
         try:
-            conn.close()
-        except:
-            pass
-        return answer
+
+            with self.conn.cursor() as cursor:
+                if city != error_answer:
+                    city = City_info().get_city_name(city)
+                    try:
+                        # ? Writes data to the table
+                        insert_data = f"""INSERT INTO city (user_id, username, city) VALUES ({user_id}, \'{username}\', \'{city}\');"""
+                        cursor.execute(insert_data)
+                        answer = (f"<b>Город принят</b>\n\n"
+                                  f"Теперь вы можете использовать команды без указания города!")
+                    except:
+                        # ? If user's city already in database
+                        update_data = f"""UPDATE city SET city = \'{city}\' WHERE user_id = {user_id};"""
+                        cursor.execute(update_data)
+                        answer = (f"<b>Город принят</b>\n\n"
+                                  f"Теперь вы можете использовать команды без указания города!")
+                else:
+                    answer = error_answer
+        except Exception as ex:
+            error("DB", ex)
+            answer = error_answer
+        finally:
+            return answer
 
 
-async def main():
+def main():
     user_id = int(input("Введите USER ID >>> "))
     username = input("Введите USERNAME >>> ")
-    city = await get_city_name(input("Введите город >>> "))
-    print(await set_user_city(user_id, username, city))
+    city = input("Введите город >>> ")
+    print(DataBase().set_user_city(user_id, username, city))
 
 
 if __name__ == "__main__":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main())
+    main()
