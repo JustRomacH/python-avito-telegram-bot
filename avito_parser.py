@@ -22,7 +22,7 @@ def set_driver_options() -> webdriver.Chrome:
 
     options = webdriver.ChromeOptions()
     caps = DesiredCapabilities().CHROME
-    user_agent = UserAgent()
+    # user_agent = UserAgent()
 
     caps["pageLoadStrategy"] = "eager"
     options.add_argument(
@@ -39,7 +39,7 @@ def set_driver_options() -> webdriver.Chrome:
     options.add_argument('--ignore-certificate-errors-spki-list')
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
-    # options.headless = True
+    options.headless = True
 
     driver = webdriver.Chrome(
         executable_path=".\\bin\\webdriver\\chromedriver.exe",
