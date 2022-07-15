@@ -68,14 +68,14 @@ class Avito_scraper:
 
         return driver
 
-    # Formats variables names
-    def format_variables(self) -> None:
-        self.search_text = '+'.join(self.search_text.split())
-        # Changes city name to link format
-        self.city = slugify(self.city.lower())
-
     # Gets html file of every page
     async def get_html(self) -> None:
+
+        print(self.city)
+
+        search_text = '+'.join(self.search_text.split())
+
+        city = slugify(self.city.lower())
 
         driver = self.driver
 
@@ -94,7 +94,7 @@ class Avito_scraper:
 
         driver.set_page_load_timeout(15)
 
-        url = f"https://www.avito.ru/{self.city}/{self.cat}?q={self.search_text}&s={self.sort}"
+        url = f"https://www.avito.ru/{city}/{self.cat}?q={search_text}&s={self.sort}"
 
         try:
             driver.get(url)
@@ -153,7 +153,7 @@ class Avito_scraper:
             url = driver.current_url
 
             # Progress bar
-            with alive_bar(last_page, bar="smooth", title="[INFO] Обработка страниц", spinner=None, elapsed=None, stats=None) as bar:
+            with alive_bar(last_page, bar="smooth", title="[INFO] Обработка страниц", spinner=None, elapsed=None, stats=None, enrich_print=False) as bar:
                 # Goes through all the pages
                 for i in range(1, last_page+1):
                     # Writes page source to html file
@@ -370,12 +370,12 @@ class Avito_scraper:
 
 async def main():
     text_search = input("Введите запрос >>> ")
-    # cat = input("Введите категорию >>> ")
     cat = ""
     min_price = int(input("Введите MIN цену >>> "))
     max_price = int(input("Введите MAX цену >>> "))
     city = input("Введите город >>> ")
     sort = input("Введите сортировку >>> ")
+
     avito_scraper = Avito_scraper(
         text_search, cat, min_price, max_price, sort, city)
     await avito_scraper.parse_avito()
