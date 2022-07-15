@@ -6,7 +6,7 @@ from print_funcs import error
 
 
 class Format_var:
-    # ? Removes unnecessary nulls in float variable
+    # Removes unnecessary nulls in float variable
     def remove_unnecessary_nulls(self, num: float) -> float:
         for _ in range(len(str(num-int(num))[2:])):
             if str(num)[-1] == 0:
@@ -15,13 +15,14 @@ class Format_var:
                 break
         return num
 
-    # ? Removes brackets and their content
+    # Removes brackets and their content
     def remove_text_between_parens(self, text: str) -> str:
         n = 1
         while n:
             text, n = re.subn(r'\([^()]*\)', '', text)
         return text
 
+    # Formats variable to filename
     def format_to_file_name(self, text: str) -> str:
         text = text.replace(" ", "_")
         text = (translit(text, language_code="ru", reversed=True)).lower()
@@ -29,7 +30,7 @@ class Format_var:
 
 
 class Course:
-    # ? Returns message content for telegram
+    # Returns message content for telegram
     def get_course(self, cur: str) -> str:
         try:
 
@@ -47,7 +48,7 @@ class Course:
             match cur.lower():
 
                 case "rub":
-                    # ? Currency info
+                    # Currency info
 
                     cur_abbr = "RUB"
 
