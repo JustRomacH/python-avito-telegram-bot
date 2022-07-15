@@ -4,37 +4,36 @@ from weather import City_info
 from config import host, port, user, password, db_name, error_answer
 
 
-# ? Connects to database
-def connect() -> pymysql.Connection:
-    try:
-        conn = pymysql.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=db_name,
-            cursorclass=pymysql.cursors.DictCursor,
-            autocommit=True
-        )
-
-        return conn
-
-    except Exception as ex:
-
-        error("DB", ex)
-
-
 class DataBase:
     def __init__(self):
-        self.conn = connect()
+        self.conn = self.__connect(host, port, user, password, db_name)
 
-    # ? Gets user's city name
+    # Connects to database
+    def __connect(self, host: str, port: int, user: str, password: str, db_name: str) -> pymysql.Connection | None:
+        try:
+            conn = pymysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=db_name,
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=True
+            )
+
+            return conn
+
+        except Exception as ex:
+
+            error("DB", ex)
+
+    # Gets user's city name
     def get_user_city(self, user_id: int) -> str:
         try:
             with self.conn.cursor() as cursor:
 
                 try:
-                    # ? Writes data to the table
+                    # Writes data to the table
                     sel_city = f"SELECT city FROM city WHERE user_id = \'{user_id}\'"
                     cursor.execute(sel_city)
                     city = cursor.fetchone()
@@ -52,7 +51,7 @@ class DataBase:
         finally:
             return city
 
-    # ? Sets user city
+    # Sets user city
     def set_user_city(self, user_id: int, username: str, city: str) -> str:
         try:
 
@@ -60,13 +59,13 @@ class DataBase:
                 if city != error_answer:
                     city = City_info().get_city_name(city)
                     try:
-                        # ? Writes data to the table
+                        # Writes data to the table
                         insert_data = f"""INSERT INTO city (user_id, username, city) VALUES ({user_id}, \'{username}\', \'{city}\');"""
                         cursor.execute(insert_data)
                         answer = (f"<b>Город принят</b>\n\n"
                                   f"Теперь вы можете использовать команды без указания города!")
                     except:
-                        # ? If user's city already in database
+                        # If user's city already in database
                         update_data = f"""UPDATE city SET city = \'{city}\' WHERE user_id = {user_id};"""
                         cursor.execute(update_data)
                         answer = (f"<b>Город принят</b>\n\n"
