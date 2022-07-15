@@ -1,53 +1,22 @@
-import json
-import aiofiles
-import asyncio
 import os
-from course import Format_var
-from termcolor import cprint
-from aiocsv import AsyncWriter
+import json
+import random
+import asyncio
+import aiofiles
 from config import proxy
-from bs4 import BeautifulSoup as Soup
+from print_funcs import *
+from course import Format_var
+from aiocsv import AsyncWriter
 from transliterate import slugify
 from fake_useragent import UserAgent
-from selenium import webdriver
+from alive_progress import alive_bar
+from bs4 import BeautifulSoup as Soup
 from selenium_stealth import stealth
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-
-
-# ? Creates driver and configures it
-def set_driver_options() -> webdriver.Chrome:
-
-    options = webdriver.ChromeOptions()
-    caps = DesiredCapabilities().CHROME
-    # user_agent = UserAgent()
-
-    caps["pageLoadStrategy"] = "eager"
-    options.add_argument(
-        f"user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36")
-    options.add_argument(f"--proxy-server={proxy}")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument('--allow-running-insecure-content')
-    options.add_argument("--disable-extensions")
-    options.add_argument("--start-maximized")
-    options.add_argument('--disable-gpu')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--ignore-ssl-errors')
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--ignore-certificate-errors-spki-list')
-    options.add_experimental_option("excludeSwitches", ["enable-logging"])
-    options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
-    options.headless = True
-
-    driver = webdriver.Chrome(
-        executable_path=".\\bin\\webdriver\\chromedriver.exe",
-        options=options,
-        desired_capabilities=caps
-    )
-
-    return driver
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
 class Avito_scraper:
@@ -58,23 +27,62 @@ class Avito_scraper:
         self.max_price = max_price
         self.sort = sort
         self.city = city
-        self.driver = set_driver_options()
         self.title_list = []
         self.data_list = []
         self.format_var = Format_var()
+        self.driver = self.__create_driver()
 
-    # ? Gets html file of every page
+    # Creates driver and configures it
+    def __create_driver(self) -> webdriver.Chrome:
+
+        options = webdriver.ChromeOptions()
+        caps = DesiredCapabilities().CHROME
+        user_agent = UserAgent()
+
+        caps["pageLoadStrategy"] = "eager"
+
+        # Turns on proxy if random number is 1
+        if round(random.random()) == 1:
+            options.add_argument(f"--proxy-server={proxy}")
+
+        options.add_argument(
+            f"user-agent={user_agent.random}")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument('--allow-running-insecure-content')
+        options.add_argument("--disable-extensions")
+        options.add_argument("--start-maximized")
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--ignore-ssl-errors')
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--ignore-certificate-errors-spki-list')
+        options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
+        # options.headless = True
+
+        driver = webdriver.Chrome(
+            executable_path=".\\bin\\webdriver\\chromedriver.exe",
+            options=options,
+            desired_capabilities=caps
+        )
+
+        return driver
+
+    # Formats variables names
+    def format_variables(self) -> None:
+        self.search_text = '+'.join(self.search_text.split())
+        # Changes city name to link format
+        self.city = slugify(self.city.lower())
+
+    # Gets html file of every page
     async def get_html(self) -> None:
 
         driver = self.driver
 
-        # ? Delete all files in bin directory
+        # Delete all files in bin directory
         for file in os.listdir(".\\bin"):
             if file.endswith("html") or file.endswith("json"):
                 os.remove(f".\\bin\\{file}")
-
-        # ? Changes city name to link format
-        city = slugify(self.city.lower())
 
         stealth(
             driver,
@@ -86,39 +94,38 @@ class Avito_scraper:
 
         driver.set_page_load_timeout(15)
 
-        if not self.sort:
-            self.sort = 0
-
-        url = f"https://www.avito.ru/{city}/{self.cat}?q={'+'.join(self.search_text.split())}&s={self.sort}"
+        url = f"https://www.avito.ru/{self.city}/{self.cat}?q={self.search_text}&s={self.sort}"
 
         try:
             driver.get(url)
 
-            # ? Page loaded
-            cprint("[INFO] Загрузил страницу", "green")
+            # Page loaded
+            info("Загрузил страницу")
 
-            # ? Wait until input for min price becomes clickable
-            WebDriverWait(driver, 10).until(
+            driver.implicitly_wait(5)
+
+            # Wait until input for min price becomes clickable
+            WebDriverWait(driver, 5).until(
                 EC.element_to_be_clickable(driver.find_elements(
                     By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[0]))
 
             driver.implicitly_wait(10)
 
-            if self.min_price and self.max_price:
+            if self.min_price != 0 and self.max_price != 0:
 
-                # ? Set MIN price
+                # Set MIN price
                 driver.find_elements(
                     By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[0].send_keys(self.min_price)
-                cprint("[INFO] Поставил минимальную цену", "green")
+                info("Поставил минимальную цену")
 
                 driver.implicitly_wait(5)
 
-                # ? Set MAX price
+                # Set MAX price
                 driver.find_elements(
                     By.CLASS_NAME, "group-root-DENYm")[0].find_elements(By.TAG_NAME, "input")[1].send_keys(self.max_price)
-                cprint("[INFO] Поставил максимальную цену", "green")
+                info("Поставил максимальную цену")
 
-                # ? Wait until button becomes clickable
+                # Wait until button becomes clickable
                 button = driver.find_elements(
                     By.CLASS_NAME, "button-button-CmK9a.button-size-s-r9SeD.button-primary-x_x8w.width-width-12-_MkqF")[0]
                 WebDriverWait(driver, 10).until(
@@ -127,75 +134,84 @@ class Avito_scraper:
                 driver.implicitly_wait(10)
 
                 button.click()
-                cprint("[INFO] Загрузил страницу с фильтрами", "green")
+
+                info("Загрузил страницу с фильтрами")
 
                 driver.implicitly_wait(10)
 
-            # ? Gets page's html
+            # Gets page's html
             first_page_source = driver.page_source
             html = Soup(first_page_source, "lxml")
+
             try:
                 last_page = int(html.find_all(
                     "span", class_="pagination-item-JJq_j")[-2].text)
             except:
-                # ? If no pagination block on the page
+                # If no pagination block on the page
                 last_page = 1
 
             url = driver.current_url
 
-            # ? Goes through all the pages
-            for i in range(1, last_page+1):
-                # ? Writes page source to html file
-                async with aiofiles.open(f"bin\\page_{i}.html", "w", encoding="utf-8") as f:
+            # Progress bar
+            with alive_bar(last_page, bar="smooth", title="[INFO] Обработка страниц", spinner=None, elapsed=None, stats=None) as bar:
+                # Goes through all the pages
+                for i in range(1, last_page+1):
+                    # Writes page source to html file
+                    async with aiofiles.open(f"bin\\page_{i}.html", "w", encoding="utf-8") as f:
 
-                    driver.get(f"{url}&p={i}")
+                        driver.get(f"{url}&p={i}")
 
-                    driver.implicitly_wait(10)
+                        driver.implicitly_wait(10)
 
-                    page_source = driver.page_source
-                    soup = Soup(page_source, "lxml")
+                        # Gets page's html code and returns it to bs4
+                        page_source = driver.page_source
+                        soup = Soup(page_source, "lxml")
 
-                    driver.implicitly_wait(10)
+                        driver.implicitly_wait(10)
 
-                    # ? Block of ads from other cities
-                    other_cities = soup.find(
-                        "div", class_="items-extraTitle-JFe8_")
+                        # Block of ads from other cities
+                        other_cities = soup.find(
+                            "div", class_="items-extraTitle-JFe8_")
 
-                    await f.write(page_source)
+                        await f.write(page_source)
 
-                    cprint(f"[+] Обработано {i}/{last_page} страниц", "cyan")
+                        # progress(i, last_page)
+                        bar()
 
-                    driver.implicitly_wait(10)
+                        driver.implicitly_wait(10)
 
-                    # ? If block of ads on the page
-                    if other_cities:
-                        cprint("[+] Дальше идут другие города", "yellow")
-                        break
+                        # If block of ads on the page
+                        if other_cities:
+                            special_info("Дальше идут другие города")
+                            break
+
         except Exception as ex:
-            # ? Removes all files in dir
+            # Removes all files in dir
             for file in os.listdir(".\\bin"):
                 if file.endswith("html"):
                     os.remove(f".\\bin\\{file}")
-            cprint(f"[HTML_ERROR] {repr(ex)}", "red")
+            error("HTML", ex)
 
         finally:
             driver.close()
             driver.quit()
 
-    # ? Gets info from every page
+    # Gets info from every page
     async def get_info(self) -> None:
         try:
-            # ? Goes through all the html pages
+            # Goes through all the html pages
             for file in os.listdir(".\\bin"):
+
                 if file.endswith("html"):
                     async with aiofiles.open(f".\\bin\\{file}", "r", encoding="utf-8") as f:
                         html = await f.read()
                         soup = Soup(html, "lxml")
 
-                        # ? Ad blocks
+                        # Ad blocks
                         items = soup.find(
                             "div", class_="items-items-kAJAg").find_all("div", class_="js-catalog-item-enum")
 
+                        # Goes through every ad on the page
                         for item in items:
 
                             block = item.find(
@@ -247,7 +263,7 @@ class Avito_scraper:
                             except:
                                 link = None
 
-                            # ? Appends data
+                            # Appends data
                             self.title_list.append(title)
 
                             self.data_list.append({
@@ -259,19 +275,20 @@ class Avito_scraper:
                             })
 
         except Exception as ex:
-            cprint(f"[INFO_ERROR] {repr(ex)}", "red")
+            error("INFO", ex)
+
         finally:
-            # ? Removes all files in dir
+            # Removes all files in dir
             for file in os.listdir(".\\bin"):
                 if file.endswith("html"):
                     os.remove(f".\\bin\\{file}")
 
-    # ? Creates json with all the ads
+    # Creates json with all the ads
     async def create_json(self) -> None:
         try:
             if self.data_list:
 
-                # ? Changes search text appearance
+                # Changes search text appearance
                 text_search = self.format_var.format_to_file_name(
                     self.search_text)
 
@@ -279,30 +296,34 @@ class Avito_scraper:
 
                 for i, item in enumerate(self.data_list):
                     try:
-                        # ? Removes \n in desc
+                        # Removes \n in desc
                         item["Описание"] = " ".join(
                             item["Описание"].replace("\n", " ").split())
                     except:
                         pass
+
                     data_dict[self.title_list[i]] = item
 
                 async with aiofiles.open(f".\\bin\\{text_search}.json", "w", encoding="utf-8") as f:
                     await f.write(json.dumps(data_dict, indent=4, ensure_ascii=False))
 
-                cprint(
-                    f"[JSON_INFO] Файл {text_search}.json успешно создан!", "green")
+                info(f"Файл {text_search}.json успешно создан!")
+
+            else:
+                info("Ничего не собрал...")
 
         except Exception as ex:
-            cprint(f"[JSON_ERROR] {repr(ex)}", "red")
+            error("JSON", ex)
 
-    # ? Creates csv with all the ads
+    # Creates csv with all the ads
     async def create_csv(self) -> None:
         try:
             if self.data_list:
-                # ? Changes search_text appearance
+                # Changes search_text appearance
                 text_search = self.format_var.format_to_file_name(
                     self.search_text)
 
+                # Write headers to csv file
                 async with aiofiles.open(f".\\bin\\{text_search}.csv", "w", encoding="utf-8") as f:
                     writer = AsyncWriter(f)
                     await writer.writerow(
@@ -315,6 +336,8 @@ class Avito_scraper:
                             "Ссылка"
                         )
                     )
+
+                # Write info to csv file
                 for i, item in enumerate(self.data_list):
                     async with aiofiles.open(f".\\bin\\{text_search}.csv", "a", encoding="utf-8") as f:
                         writer = AsyncWriter(f)
@@ -328,12 +351,15 @@ class Avito_scraper:
                                 item["Ссылка"]
                             )
                         )
-                cprint(
-                    f"[CSV_INFO] Файл {text_search}.csv успешно создан!", "green")
-        except Exception as ex:
-            cprint(f"[CSV_ERROR] {repr(ex)}", "red")
+                info(f"Файл {text_search}.csv успешно создан!")
 
-    # ? All in one
+            else:
+                info("Ничего не собрал...")
+
+        except Exception as ex:
+            error("CSV", ex)
+
+    # All in one
     async def parse_avito(self) -> str:
         await self.get_html()
         await self.get_info()
@@ -344,12 +370,15 @@ class Avito_scraper:
 
 async def main():
     text_search = input("Введите запрос >>> ")
-    cat = input("Введите категорию >>> ")
-    min_price = input("Введите MIN цену >>> ")
-    max_price = input("Введите MAX цену >>> ")
+    # cat = input("Введите категорию >>> ")
+    cat = ""
+    min_price = int(input("Введите MIN цену >>> "))
+    max_price = int(input("Введите MAX цену >>> "))
     city = input("Введите город >>> ")
     sort = input("Введите сортировку >>> ")
-    await Avito_scraper(text_search, cat, min_price, max_price, sort, city).parse_avito()
+    avito_scraper = Avito_scraper(
+        text_search, cat, min_price, max_price, sort, city)
+    await avito_scraper.parse_avito()
 
 
 if __name__ == "__main__":
