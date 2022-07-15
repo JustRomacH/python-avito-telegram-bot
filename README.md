@@ -4,25 +4,25 @@
 
 #### 1. Scraping of Avito is the main and most difficult part of this project. Here I used Selenium for the first time, combining it with BeautifulSoup to improve performance, because WebDriver took a very long time to find the right objects. Selenium uses a beta version of chrome, because on my main browser (103.0.5060.66) there were different errors, but after installing the beta version and updating the WebDriver everything is much more stable.
 
-![avito_1](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/Screenshot_2.png)
+![avito_1](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/avito_1.png)
 
-![avito_2](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/Screenshot_3.png)
+![avito_2](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/avito_2.png)
 
 #### Here's what he collected
 
-![avito_3](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/Screenshot_4.png)
+![avito_3](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/avito_3.png)
 
 ---
 
 #### 2. Getting Weather was implemented by OpenWeather API, which is a very convenient and simple.
 
-![weather](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/Screenshot_1.png)
+![weather](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/weather.png)
 
 ---
 
 #### 3. You can get a currency rate using CBR-XML with just a get request.
 
-![course](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/Screenshot_course.png)
+![course](https://github.com/JustRomacH/python-avito-telegram-bot/raw/master/images/course.png)
 
 #### Links:
 
