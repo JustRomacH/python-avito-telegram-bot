@@ -5,21 +5,68 @@ from datetime import datetime
 from config import weather_token, error_answer
 
 
-class Weather:
-    def get_weather(self, city: str) -> str:  # ? Gets city weather
+class City_info:
+
+    def __init__(self):
+        self.session = requests.Session()
+
+    def get_coords(self, city: str) -> tuple:  # Returns tuple with city coords
+        try:
+            url = f"http://api.openweathermap.org/geo/1.0/direct?q={self.get_city_name(city)}&appid={weather_token}"
+
+            # City location
+            r_geo = self.session.get(url).json()[0]
+
+            # * City Latitude and Longitude
+            city_lat = r_geo["lat"]
+            city_lon = r_geo["lon"]
+
+        except Exception as ex:
+            error("COORDS", ex)
+
+        return city_lat, city_lon
+
+    def get_city_name(self, city: str) -> str:  # Returns full city name
 
         try:
-            city_lat, city_lon = City_info().get_coords(city)
+
+            # City location
+            r_geo = self.session.get(
+                f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}").json()[0]
+
+            # Full city name
+            city_name = r_geo.get("local_names").get("ru")
+
+        except IndexError as ex:
+            city_name = error_answer
+
+        except Exception as ex:
+            city_name = error_answer
+            error("WTHR", ex)
+
+        finally:
+            return city_name
+
+
+class Weather(City_info):
+
+    def __init__(self):
+        super().__init__()
+
+    def get_weather(self, city: str) -> str:  # Gets city weather
+
+        try:
+            city_lat, city_lon = self.get_coords(city)
             url = f"https://api.openweathermap.org/data/2.5/weather?lat={city_lat}&lon={city_lon}&appid={weather_token}&units=metric"
 
-            # ? Weather dict
-            r_weather = requests.get(url).json()
+            # Weather dict
+            r_weather = self.session.get(url).json()
 
-            # ? Json with short weather descriptions
+            # Json with short weather descriptions
             with open(".\\bin\\jsons\\weather_desc.json", "r", encoding="utf-8") as f:
                 weather_desc = json.load(f)
 
-            # * Variables
+            # Variables
             city_name = city
 
             weather_main = weather_desc[r_weather["weather"][0]["main"]]
@@ -67,50 +114,11 @@ class Weather:
             return weather
 
 
-class City_info:
-
-    def get_coords(self, city: str) -> tuple:  # ? Returns tuple with city coords
-        try:
-            url = f"http://api.openweathermap.org/geo/1.0/direct?q={self.get_city_name(city)}&appid={weather_token}"
-
-            # ? City location
-            r_geo = requests.get(url).json()[0]
-
-            # * City Latitude and Longitude
-            city_lat = r_geo["lat"]
-            city_lon = r_geo["lon"]
-
-        except Exception as ex:
-            error("COORDS", ex)
-
-        return city_lat, city_lon
-
-    def get_city_name(self, city: str) -> str:  # ? Returns full city's name
-
-        try:
-
-            # ? City location
-            r_geo = requests.get(
-                f"http://api.openweathermap.org/geo/1.0/direct?q={city}&appid={weather_token}").json()[0]
-
-            # * Full city name
-            city_name = r_geo.get("local_names").get("ru")
-
-        except IndexError as ex:
-            city_name = error_answer
-
-        except Exception as ex:
-            city_name = error_answer
-            error("WTHR", ex)
-
-        finally:
-            return city_name
-
-
 def main():
     city = input("Введите город >>> ")
-    city = City_info().get_city_name(city)
+    city = "спб"
     weather = Weather()
+    city = weather.get_city_name(city)
     print(weather.get_weather(city))
 
 
